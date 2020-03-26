@@ -151,7 +151,7 @@ static void read_video(const std::string &url, queue &q)
 
 	is_rtsp = (url.compare(0,7, "rtsp://") == 0);
 
-	if (in.open(url)) {
+	if (in.open(url, is_rtsp ? "rtsp_transport=tcp" : "")) {
 		int64_t t0;
 
 		if (is_rtsp) {
