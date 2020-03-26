@@ -9,7 +9,7 @@
 #include <ffmpeg.hpp>
 
 struct queue {
-	queue(size_t capacity = 90) : capacity(capacity), closed(false), t0(AV_NOPTS_VALUE) {}
+	queue(size_t capacity = 90) : capacity(capacity), max(0), closed(false), t0(AV_NOPTS_VALUE) {}
 
 	void enqueue(av::frame &f) {
 		std::lock_guard<std::mutex> l(m);
@@ -23,6 +23,9 @@ struct queue {
 
 		if (filled.size() > capacity)
 			filled.pop_front();
+
+		if (max < filled.size())
+			max = filled.size();
 
 		cv.notify_one();
 	}
@@ -103,10 +106,16 @@ struct queue {
 		return filled.size();
 	}
 
+	size_t max_size() {
+		std::lock_guard<std::mutex> l(m);
+
+		return max;
+	}
+
 	std::mutex m;
 	std::condition_variable cv;
 	std::list<av::frame> filled;
-	size_t capacity;
+	size_t capacity, max;
 	bool closed;
 	int64_t t0;
 };
