@@ -42,6 +42,45 @@ struct queue {
 		return f;
 	}
 
+	bool acquire(av::frame &f, int64_t pts) {
+		std::unique_lock<std::mutex> l(m);
+
+		if (filled.empty())
+			return false;
+
+		if (pts < filled.front().f->pts + t0) {
+			/*
+			 * we are reading faster than the other stream
+			 * the only choice is to let the other keeps
+			 * reading
+			 */
+			return false;
+		}
+
+		while ((pts > filled.back().f->pts + t0) && !closed) {
+			/*
+			 * the other thread is in advance just wait a
+			 * little bit to receive some new frames
+			 */
+			cv.wait(l);
+		}
+
+		if (closed)
+			return false;
+
+		/*
+		 * we should be able to find the corresponding frame
+		 * now
+		 * please rewrite this part it sucks!
+		 */
+		while (!filled.empty() && pts >= filled.front().f->pts + t0) {
+			f = filled.front();
+			filled.pop_front();
+		}
+
+		return true;
+	}
+
 	void close(bool clear = false) {
 		std::lock_guard<std::mutex> l(m);
 
@@ -56,6 +95,12 @@ struct queue {
 		std::lock_guard<std::mutex> l(m);
 
 		return closed && filled.empty();
+	}
+
+	size_t size() {
+		std::lock_guard<std::mutex> l(m);
+
+		return filled.size();
 	}
 
 	std::mutex m;
@@ -173,38 +218,21 @@ int main(int argc, char *argv[])
 		// start reading frame here
 		av::frame f1, f2;
 
+		std::cerr << "\r\033[2L";
+		std::cerr << "q1: " << q1.size() << " q2: " << q2.size();
+
 		f1 = q1.acquire();
 
 		if (f1.f->pts - oldpts > 3600)
-			std::cerr << "a f1 frame is missing" << std::endl;
+			std::cerr << std::endl << "a f1 frame is missing" << std::endl;
 		oldpts = f1.f->pts;
 
-	again:
-		int64_t min, max;
-		{
-			std::lock_guard<std::mutex> l(q2.m);
-
-			if (q2.filled.empty()) {
-				std::cerr << "no f2 frames" << std::endl;
-				continue;
-			}
-
-			min = q2.t0 + q2.filled.front().f->pts;
-			max = q2.t0 + q2.filled.back().f->pts;
-		}
-
-//		std::cerr << "f1: " << q1.t0 + oldpts;
-//		std::cerr << " q2: min: " << min << " max: " << max << std::endl;
-
-		if (q1.t0 + oldpts < min) {
-			std::cerr << "q1 is in a hurry, nothing to do..." << std::endl;
-		} else if (q1.t0 + oldpts > max) {
-			std::cerr << "q1 is in advance, juste wait a bit" << std::endl;
-			std::this_thread::sleep_for(std::chrono::milliseconds(50));
-			goto again;
+		if (q2.acquire(f2, f1.f->pts + q1.t0)) {
+			// do something with f1 and f2
 		} else {
-			//std::cerr << "a f2 corresponding to f1 can be found" << std::endl;
+			std::cerr << std::endl << "can't find a second frame" << std::endl;
 		}
+
 	}
 
 	t1.join();
