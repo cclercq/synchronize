@@ -212,8 +212,6 @@ int main(int argc, char *argv[])
 	t1 = std::thread(read_video, argv[1], std::ref(q1));
 	t2 = std::thread(read_video, argv[2], std::ref(q2));
 
-	int64_t oldpts;
-
 	while (!q1.is_closed() && !q2.is_closed()) {
 		// start reading frame here
 		av::frame f1, f2;
@@ -222,10 +220,6 @@ int main(int argc, char *argv[])
 		std::cerr << "q1: " << q1.size() << " q2: " << q2.size();
 
 		f1 = q1.acquire();
-
-		if (f1.f->pts - oldpts > 3600)
-			std::cerr << std::endl << "a f1 frame is missing" << std::endl;
-		oldpts = f1.f->pts;
 
 		if (q2.acquire(f2, f1.f->pts + q1.t0)) {
 			// do something with f1 and f2
