@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iomanip>
 #include <sstream>
 #include <chrono>
 #include <thread>
@@ -226,7 +227,10 @@ int main(int argc, char *argv[])
 		av::frame f1, f2;
 
 		std::cerr << "\r\033[2L";
-		std::cerr << "q1: " << q1.size() << " q2: " << q2.size();
+		std::cerr << "q1: " << std::setw(2) << q1.size()
+			  << "/" << std::setw(2) << q1.max_size()
+			  << " q2: " << std::setw(2) << q2.size()
+			  << "/" << std::setw(2) << q2.max_size();
 
 		f1 = q1.acquire();
 
