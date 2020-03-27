@@ -201,6 +201,21 @@ static void read_video(const std::string &url, queue &q)
 		std::cerr << "t0: " << t0 << std::endl;
 
 		AVRational time_base = in.time_base(VIDEO_STREAM_INDEX);
+		/*
+		 * In this part we will convert t0 that is a NTP date
+		 * (us since epoch) to the video stream timebase. The
+		 * goal here is to only manipulate date and duration
+		 * on the same timebase.
+		 *
+		 * The timebase of the ntpdate is 1 / 1000000. (us)
+		 * The timebase of the stream is time_base.num / time_base.den.
+		 *
+		 * So convertion of the ntp date is done like this:
+		 * t0_in_stream_timebase = (t0 / 1000000) / (time_base.num / time_base.den)
+		 *                       = t0 * time_base.den / (1000000 * time_base.num)
+		 *
+		 * av_rescale(a, b, c) is equivalent to a * b / c
+		 */
 		q.t0 = av_rescale(t0, time_base.den, time_base.num * 1000000);
 
 		read_input(in, q);
