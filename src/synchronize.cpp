@@ -121,6 +121,8 @@ struct queue {
 	int64_t t0;
 };
 
+#define VIDEO_STREAM_INDEX 0
+
 static void read_input(av::input &in, queue &q)
 {
 	av::hw_device accel;
@@ -129,7 +131,7 @@ static void read_input(av::input &in, queue &q)
 	if (!accel)
 		accel = av::hw_device("vaapi");
 #endif
-	av::decoder dec = in.get(accel, 0);
+	av::decoder dec = in.get(accel, VIDEO_STREAM_INDEX);
 	if (!dec) {
 		std::cerr << "Unable to get a decoder" << std::endl;
 		return;
@@ -139,7 +141,7 @@ static void read_input(av::input &in, queue &q)
 	av::frame f;
 
 	while (in >> p) {
-		if (p.stream_index() != 0)
+		if (p.stream_index() != VIDEO_STREAM_INDEX)
 			continue;
 
 		dec << p;
@@ -198,7 +200,7 @@ static void read_video(const std::string &url, queue &q)
 
 		std::cerr << "t0: " << t0 << std::endl;
 
-		AVRational time_base = in.time_base(0);
+		AVRational time_base = in.time_base(VIDEO_STREAM_INDEX);
 		q.t0 = av_rescale(t0, time_base.den, time_base.num * 1000000);
 
 		read_input(in, q);
