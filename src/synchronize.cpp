@@ -77,10 +77,26 @@ struct queue {
 		 * now
 		 * please rewrite this part it sucks!
 		 */
+		/*
 		while (!filled.empty() && pts >= filled.front().f->pts + t0) {
 			f = filled.front();
 			filled.pop_front();
 		}
+		*/
+		do{
+			if(pts >= filled.front().f->pts + t0){
+				f = filled.front();
+				filled.pop_front();
+			}
+			else if( (pts - f.f->pts) > (filled.front().f->pts - pts) ){
+				f = filled.front();
+				break;
+			}
+			else{
+				break;
+			}
+		}while(!filled.empty());
+
 
 		return true;
 	}
