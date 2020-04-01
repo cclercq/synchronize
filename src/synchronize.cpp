@@ -164,7 +164,7 @@ static void read_input(av::input &in, queue &q)
 	av::packet p;
 	av::frame f;
 	av::frame rgb;
-	av_image_alloc(rgb.f->data, rgb.f->linesize, in.get(0).ctx->width, in.get(0).ctx->height, AV_PIX_FMT_BGR24, 32);
+	av_image_alloc(rgb.f->data, rgb.f->linesize, in.get(0).width(), in.get(0).height(), AV_PIX_FMT_BGR24, 32);
 
 	while (in >> p) {
 		if (p.stream_index() != VIDEO_STREAM_INDEX)
@@ -174,17 +174,17 @@ static void read_input(av::input &in, queue &q)
 
 		while (dec >> f){
 			int got_frame;
-			avcodec_decode_video2(in.get(0).ctx, f, &got_frame, p);
+			avcodec_decode_video2(in.get(0).av_codec_context(), f.f, &got_frame, p.av_packet());
 			if( got_frame ){
 				struct SwsContext *im_convert_ctx;
-				im_convert_ctx = sws_getCachedContext(NULL,
-									f->data,
-									frame->linesize,
+				im_convert_ctx = sws_getCachedContext(	NULL,
+									f.f->data,
+									f.f->linesize,
 									0,
-									in.get(0).ctx->height,
-									rgb->data,
-									rgb->linesize);
-				rgb->pts = f->pts;
+									in.get(0).height(),
+									rgb.f->data,
+									rgb.f->linesize);
+				rgb.f->pts = f.f->pts;
 				q.enqueue(rgb);
 			}
 			//q.enqueue(f);
@@ -280,8 +280,8 @@ int main(int argc, char *argv[])
 	t1 = std::thread(read_video, argv[1], std::ref(q1));
 	t2 = std::thread(read_video, argv[2], std::ref(q2));
 
-	cv::namedWindow('frame 1', cv::WINDOW_NORMAL);
-	cv::namedWindow('frame 2', cv::WINDOW_NORMAL);
+	cv::namedWindow("frame 1", cv::WINDOW_NORMAL);
+	cv::namedWindow("frame 2", cv::WINDOW_NORMAL);
 
 	while (!q1.is_closed() && !q2.is_closed()) {
 		// start reading frame here
