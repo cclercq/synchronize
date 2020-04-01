@@ -9,6 +9,14 @@
 
 #include <ffmpeg.hpp>
 
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+
+extern "C"{
+#include <libavutil/imgutils.h>
+#include <libswscale/swscale.h>
+}
+
 struct queue {
 	queue(size_t capacity = 90) : capacity(capacity), max(0), closed(false), t0(AV_NOPTS_VALUE) {}
 
@@ -155,6 +163,8 @@ static void read_input(av::input &in, queue &q)
 
 	av::packet p;
 	av::frame f;
+	av::frame rgb;
+	av_image_alloc(rgb.f->data, rgb.f->linesize, in.get(0).ctx->width, in.get(0).ctx->height, AV_PIX_FMT_BGR24, 32);
 
 	while (in >> p) {
 		if (p.stream_index() != VIDEO_STREAM_INDEX)
@@ -162,8 +172,23 @@ static void read_input(av::input &in, queue &q)
 
 		dec << p;
 
-		while (dec >> f)
-			q.enqueue(f);
+		while (dec >> f){
+			int got_frame;
+			avcodec_decode_video2(in.get(0).ctx, f, &got_frame, p);
+			if( got_frame ){
+				struct SwsContext *im_convert_ctx;
+				im_convert_ctx = sws_getCachedContext(NULL,
+									f->data,
+									frame->linesize,
+									0,
+									in.get(0).ctx->height,
+									rgb->data,
+									rgb->linesize);
+				rgb->pts = f->pts;
+				q.enqueue(rgb);
+			}
+			//q.enqueue(f);
+		}
 	}
 
 	// flush
@@ -172,9 +197,9 @@ static void read_input(av::input &in, queue &q)
 		q.enqueue(f);
 }
 
-static void read_video(const std::string &url, queue &q)
+static void read_video(const std::string &url, queue &q, av::input &in)
 {
-	av::input in;
+	//av::input in;
 	bool is_rtsp;
 
 	is_rtsp = (url.compare(0,7, "rtsp://") == 0);
@@ -255,6 +280,9 @@ int main(int argc, char *argv[])
 	t1 = std::thread(read_video, argv[1], std::ref(q1));
 	t2 = std::thread(read_video, argv[2], std::ref(q2));
 
+	cv::namedWindow('frame 1', cv::WINDOW_NORMAL);
+	cv::namedWindow('frame 2', cv::WINDOW_NORMAL);
+
 	while (!q1.is_closed() && !q2.is_closed()) {
 		// start reading frame here
 		av::frame f1, f2;
@@ -274,6 +302,7 @@ int main(int argc, char *argv[])
 		}
 
 	}
+	cv::destroyAllWindows();
 
 	t1.join();
 	t2.join();

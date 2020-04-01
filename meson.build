@@ -6,4 +6,4 @@ libavdep = libav.get_variable('avcpp_dep')
 executable('synchronize', [
 	    'src/synchronize.cpp'
           ],
-	   dependencies : [ libavdep, dependency('threads') ] )
+	   dependencies : [ libavdep, dependency('threads'), dependency('opencv4') ] )
